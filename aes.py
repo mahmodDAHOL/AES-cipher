@@ -90,6 +90,17 @@ def hex_to_binary(hex_digits):
 
     return binary_digits
 
+def hex_matrix_to_bin(matrix):
+    rows = []
+    for row in matrix:
+        rows.append([hex_to_binary(x) for x in row])
+    return rows
+
+def bin_matrix_to_hex(matrix):
+    rows = []
+    for row in matrix:
+        rows.append([bin_to_hex(x) for x in row])
+    return rows
 
 Sbox = [
     ["63", "7C", "77", "7B", "F2", "6B", "6F", "C5",
@@ -375,12 +386,10 @@ def block_encrypt(message, round_keys):
                 columns_mixed, bin_to_matrix("".join(round_keys[i])))
 
         else:
-            rows = []
             substituted = byte_substitution(message_key_added, Sbox)
             rows_shited = shift_rows(substituted)
-            for row in rows_shited:
-                rows.append([hex_to_binary(i) for i in row])
-            rows_shited = rows
+
+            rows_shited = hex_matrix_to_bin(rows_shited)
 
             message_key_added = add_round_key(
                 rows_shited, bin_to_matrix("".join(round_keys[i])))
@@ -401,11 +410,7 @@ def block_decrypt(encrypted, round_keys):
     rows_shited = inv_shift_rows(encrypted_key_added)
 
     substituted = byte_substitution(rows_shited, Sbox_inv)
-    rows = []
-    for row in substituted:
-        rows.append([hex_to_binary(x) for x in row])
-    substituted = rows
-
+    substituted = hex_matrix_to_bin(substituted)
     encrypted_key_added = add_round_key(
         substituted, bin_to_matrix("".join(round_keys[-2])))
     columns_mixed = inv_mix_columns(inv_mix_column_matrix, encrypted_key_added)
@@ -416,10 +421,7 @@ def block_decrypt(encrypted, round_keys):
 
         if i != 0:
 
-            rows = []
-            for row in substituted:
-                rows.append([hex_to_binary(x) for x in row])
-            substituted = rows
+            substituted = hex_matrix_to_bin(substituted)
             encrypted_key_added = add_round_key(
                 substituted, bin_to_matrix("".join(round_keys[i])))
             columns_mixed = inv_mix_columns(
@@ -427,10 +429,7 @@ def block_decrypt(encrypted, round_keys):
 
         else:
 
-            rows = []
-            for row in substituted:
-                rows.append([hex_to_binary(i) for i in row])
-            substituted = rows
+            substituted = hex_matrix_to_bin(substituted)
             encrypted_key_added = add_round_key(
                 substituted, bin_to_matrix("".join(round_keys[i])))
     encrypted_message_cols = [[row[i]
@@ -440,9 +439,7 @@ def block_decrypt(encrypted, round_keys):
 
 def encrypte(mail, key, mode="ebc"):
 
-    # mail_as_numbers = [ord(letter) for letter in mail]
     mail_as_hex = mail.encode('utf-8').hex()
-    # mail_as_hex = "".join([hex(letter)[2:] for letter in mail_as_numbers])
     blocks = [mail_as_hex[i:i+32] for i in range(0, len(mail_as_hex), 32)]
     blocks[-1] = blocks[-1] + (len(blocks[-1]) % 32) * "a"  # padding with (a)
     bin_key = hex_to_binary(key)
@@ -451,7 +448,7 @@ def encrypte(mail, key, mode="ebc"):
                  bin_key[2*32:3*32], bin_key[3*32:4*32]]
     round_keys = generate_round_keys(key_words)
 
-    encrepted_mail = ""
+    encrypted_mail = ""
 
     if mode == "ebc":
         for block in blocks:
@@ -459,9 +456,9 @@ def encrypte(mail, key, mode="ebc"):
 
             hex_encrypted_message = "".join(
                 [bin_to_hex(encrypted_block[i:i+4]) for i in range(0, 128, 4)])
-            encrepted_mail += hex_encrypted_message
+            encrypted_mail += hex_encrypted_message
 
-        return encrepted_mail, round_keys
+        return encrypted_mail, round_keys
 
     if mode == "cbc":
         added_IV = xor(hex_to_binary(blocks[0]), IV)
@@ -469,7 +466,7 @@ def encrypte(mail, key, mode="ebc"):
         hex_encrypted_message = "".join(
             [bin_to_hex(encrypted_block[i:i+4]) for i in range(0, 128, 4)])
 
-        encrepted_mail += hex_encrypted_message
+        encrypted_mail += hex_encrypted_message
 
         for block in blocks[1:]:
             added_with_pre_c = xor(hex_to_binary(block), encrypted_block)
@@ -477,13 +474,13 @@ def encrypte(mail, key, mode="ebc"):
 
             hex_encrypted_message = "".join(
                 [bin_to_hex(encrypted_block[i:i+4]) for i in range(0, 128, 4)])
-            encrepted_mail += hex_encrypted_message
+            encrypted_mail += hex_encrypted_message
 
-        return encrepted_mail, round_keys
+        return encrypted_mail, round_keys
 
 def decrypte(encrypted_mail_as_hex, round_keys, mode="ebc"):
 
-    decrepted_mail = ""
+    decrypted_mail = ""
     blocks = [encrypted_mail_as_hex[i:i+32] for i in range(0, len(encrypted_mail_as_hex), 32)]
 
     if mode == "ebc":
@@ -492,16 +489,16 @@ def decrypte(encrypted_mail_as_hex, round_keys, mode="ebc"):
 
             hex_decrypted_message = "".join(
                 [bin_to_hex(decrypted_block[i:i+4]) for i in range(0, 128, 4)])
-            decrepted_mail += hex_decrypted_message
+            decrypted_mail += hex_decrypted_message
 
-        return decrepted_mail
+        return decrypted_mail
 
     if mode == "cbc":
         decrypted_block = block_decrypt(blocks[0], round_keys)
         added_IV = xor(decrypted_block, IV)
         hex_decrypted_message = "".join(
             [bin_to_hex(added_IV[i:i+4]) for i in range(0, 128, 4)])
-        decrepted_mail += hex_decrypted_message
+        decrypted_mail += hex_decrypted_message
 
         for block in blocks[1:]:
             i = 1
@@ -509,14 +506,15 @@ def decrypte(encrypted_mail_as_hex, round_keys, mode="ebc"):
             added_IV = xor(decrypted_block, hex_to_binary(blocks[i]))
 
             hex_decrypted_message = "".join([bin_to_hex(added_IV[i:i+4]) for i in range(0, 128, 4)])
-            decrepted_mail += hex_decrypted_message
+            decrypted_mail += hex_decrypted_message
             i += 1
-        return decrepted_mail
+        return decrypted_mail
 
 mail = "hello there i am IT student"
 key = "2b7e151628aed2a6abf7158809cf4f3c"
-encrepted_mail, round_keys = encrypte(mail, key)
-decrepted_mail = decrypte(encrepted_mail, round_keys).strip("A")
-original_message = codecs.decode(decrepted_mail, 'hex').decode("ASCII")
-print(f"{encrepted_mail=}")
+encrypted_mail, round_keys = encrypte(mail, key)
+decrypted_mail = decrypte(encrypted_mail, round_keys).strip("A")
+original_message = codecs.decode(decrypted_mail, 'hex').decode("ASCII")
+print(f"{encrypted_mail=}")
 print(f"{original_message=}")
+
